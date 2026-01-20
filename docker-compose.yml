@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Option A: Scheduled Job Mode (run via external cron)
+  # Use: docker-compose run --rm transcription-service
+  transcription-service:
+    build:
+      context: .
+      args:
+        WHISPER_MODEL: ${WHISPER_MODEL:-small}
+    image: email-transcription:latest
+    container_name: email-transcription
+    env_file:
+      - .env
+    command: ["python", "-u", "-m", "app.main", "--mode", "once"]
+    restart: "no"
+    volumes:
+      - ./logs:/app/logs
+    mem_limit: ${MEMORY_LIMIT:-8g}  # Adjust: small=2g, medium=5g, large=10g
+
+  # Option B: Daemon Mode (continuous service)
+  # Use: docker-compose up -d transcription-daemon
+  transcription-daemon:
+    build:
+      context: .
+      args:
+        WHISPER_MODEL: ${WHISPER_MODEL:-small}
+    image: email-transcription:latest
+    container_name: email-transcription-daemon
+    env_file:
+      - .env
+    command: ["python", "-u", "-m", "app.main", "--mode", "daemon"]
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    mem_limit: ${MEMORY_LIMIT:-8g}

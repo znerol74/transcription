@@ -1,0 +1,46 @@
+FILE: VoiceMessag_7.wav
+SPACHE: de
+--------------------------------------------------------------------------------
+Hallo, schön, dass ich hier bin. Wir bräuchten einen Termin für ein MRD fürs Knie. Danke.
+
+
+--------------------------------------------------------------------------------
+FILE: VoiceMessage_1.wav
+SPACHE: de
+--------------------------------------------------------------------------------
+Jeden Tag. Meine Mutter hat bei euch am 19. Jänner einen Termin. Und die Hausärztin hat sich jetzt damit gekoppelt, dass ich es gewusst habe. Und hat bei euch im Dreierverhalten. Das ist meine Mutter. Das haben wir schon am Termin. Also bitte den am 19. streiten. Das war's. Danke. Wiederhören.
+
+
+--------------------------------------------------------------------------------
+FILE: VoiceMessage_2.wav
+SPACHE: de
+--------------------------------------------------------------------------------
+Hallo, ich habe für euch einen Befund bekommen, aber leider keine Bilder und das ist jetzt nicht das erste Mal, sondern das ist gefühlt das hundertste Mal. Ich kann nämlich leider, oder auch die Patienten können die Bilder nicht aufmachen. Entweder ist es wegen der Braut oder wie immer. Also bitte in Zukunft Bilder und Befund. Ich will nur grazieren.
+
+
+--------------------------------------------------------------------------------
+FILE: VoiceMessage_3.wav
+SPACHE: de
+--------------------------------------------------------------------------------
+Ja, das hat Martina Kranjitz. Ich brauche für das AKH in Wien, dass meine Bilder auf EGA eingestellt werden. Können Sie mich dazu zurückrufen? Danke.
+
+
+--------------------------------------------------------------------------------
+FILE: VoiceMessage_4.wav
+SPACHE: de
+--------------------------------------------------------------------------------
+Ja, Pflege ist da, bitte nochmals einen Rückruf. Danke.
+
+
+--------------------------------------------------------------------------------
+FILE: VoiceMessage_5.wav
+SPACHE: de
+--------------------------------------------------------------------------------
+Ich hätte eine Überweisung für ein CD, Abdomen, Becken, Zystenabklärung von der SVS. Hätte ich dort die Überweisung? Und die Frage ist, erstens Termin, zweitens wie lange Überweisung gültig und ob wir das noch extra für die Bewilligung vorher einschicken müssen. Bitte um Rückruf, danke.
+
+
+--------------------------------------------------------------------------------
+FILE: VoiceMessage_6.wav
+SPACHE: de
+--------------------------------------------------------------------------------
+Herzliches Gott, ich würde bitte einen Termin für MR brauchen. Danke, wiederhören.
