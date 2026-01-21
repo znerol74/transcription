@@ -2,6 +2,8 @@
 Microsoft 365 email client for voice message processing
 """
 import logging
+import re
+import base64
 from typing import Optional, List, Tuple
 from datetime import datetime
 from O365 import Account
@@ -77,11 +79,14 @@ class EmailClient:
         self.logger.info("Fetching recent messages with attachments")
 
         try:
-            # Fetch recent messages like the test script does
+            # Fetch unread messages from voicemail system only
+            # Note: We can't use $orderby with complex $filter (causes "restriction too complex" error)
+            # So we filter by sender and skip ordering - messages come in default order
+            query = f"isRead eq false and from/emailAddress/address eq '{Config.VOICEMAIL_SENDER}'"
+            self.logger.info(f"Query: {query}")
             messages = self.mailbox.get_messages(
-                query='isRead eq false',
-                order_by='receivedDateTime desc',
-                limit=2
+                query=query,
+                limit=Config.MAX_EMAILS_PER_RUN
                 )
 
             # Filter for messages with attachments and WAV files
@@ -91,6 +96,8 @@ class EmailClient:
             wav_messages = []
 
             for msg in messages_list:
+                self.logger.info(f"Checking message: {msg.subject}, isRead: {msg.is_read}")
+
                 # Skip messages without attachments
                 if not msg.has_attachments:
                     continue
@@ -190,7 +197,7 @@ class EmailClient:
 
     def append_transcription(self, message, transcription_text: str, marker: str) -> bool:
         """
-        Reply to the email with the transcription (sends to ourselves, grouped as thread)
+        Delete original email and create new one with transcription
 
         Args:
             message: O365 message object
@@ -201,27 +208,74 @@ class EmailClient:
             True if successful, False otherwise
         """
         try:
-            # Create a reply (this keeps the conversation thread)
-            reply = message.reply()
+            # 1. Extract phone number from subject
+            subject = message.subject or ""
+            phone_match = re.search(r'\+\d+', subject)
+            phone_number = phone_match.group() if phone_match else "Unbekannt"
 
-            # Clear the default recipients (which would be the sender)
-            reply.to.clear()
+            # 2. Get WAV attachment data (already downloaded)
+            wav_attachments = []
+            for attachment in message.attachments:
+                if attachment.name.lower().endswith('.wav'):
+                    content = attachment.content
+                    if isinstance(content, str):
+                        content = base64.b64decode(content)
+                    wav_attachments.append((attachment.name, content))
 
-            # Send to ourselves instead
-            reply.to.add(self.target_email)
+            # 3. Create new message FIRST
+            new_msg = self.mailbox.new_message()
+            new_msg.to.add(self.target_email)
+            new_msg.subject = f"Transkribierte Sprachnachricht von {phone_number}"
+            new_msg.body = f"{marker}<br><br>{transcription_text}"
 
-            # Set the reply body with transcription
-            reply_body = f"{marker}\n\n{transcription_text}"
-            reply.body = reply_body
+            # 4. Attach WAV files (save to temp file first, as O365 expects file path)
+            import tempfile
+            import os
+            temp_files = []
+            for filename, wav_data in wav_attachments:
+                temp_path = os.path.join(tempfile.gettempdir(), filename)
+                with open(temp_path, 'wb') as f:
+                    f.write(wav_data)
+                temp_files.append(temp_path)
+                new_msg.attachments.add(temp_path)
 
-            # Send the reply
-            reply.send()
+            # 5. Send new message - if this fails, original stays intact
+            new_msg.send()
+            self.logger.info(f"New message sent for {phone_number}")
 
-            self.logger.info(f"Transcription reply sent to {self.target_email}")
+            # 6. Wait for sync, then delete from Sent folder
+            import time
+            time.sleep(3)
+            target_subject = f"Transkribierte Sprachnachricht von {phone_number}"
+
+            # 6a. New message contains marker in body, so it will be filtered out by query
+
+            # 6b. Delete from Sent folder
+            try:
+                sent_folder = self.mailbox.sent_folder()
+                sent_messages = list(sent_folder.get_messages(limit=10, order_by='sentDateTime desc'))
+                for sent_msg in sent_messages:
+                    if sent_msg.subject == target_subject:
+                        sent_msg.delete()
+                        self.logger.info(f"Deleted message from Sent folder")
+                        break
+            except Exception as e:
+                self.logger.warning(f"Could not delete from Sent folder: {e}")
+
+            # 7. Clean up temp files
+            for temp_path in temp_files:
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+
+            # 7. Only delete original AFTER successful send
+            message.delete()
+            self.logger.info(f"Deleted original message: {subject}")
             return True
 
         except Exception as e:
-            self.logger.error(f"Error sending transcription reply: {e}")
+            self.logger.error(f"Error replacing message with transcription: {e}")
             return False
 
     def process_message(self, message, transcription_service, marker: str) -> bool:

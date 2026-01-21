@@ -21,6 +21,8 @@ class Config:
 
     # Service Configuration
     CHECK_INTERVAL_SECONDS: int = int(os.getenv("CHECK_INTERVAL_SECONDS", "120"))
+    MAX_EMAILS_PER_RUN: int = int(os.getenv("MAX_EMAILS_PER_RUN", "25"))
+    VOICEMAIL_SENDER: str = os.getenv("VOICEMAIL_SENDER", "unityconnection@hosted-comm-service.a1.net")
     START_DATE: str = os.getenv("START_DATE", "2024-01-01T00:00:00Z")
 
     # Whisper Model Configuration
@@ -80,8 +82,10 @@ class Config:
         return f"""
 Configuration:
   Target Email: {cls.TARGET_EMAIL}
+  Voicemail Sender: {cls.VOICEMAIL_SENDER}
   Whisper Model: {cls.WHISPER_MODEL}
   Check Interval: {cls.CHECK_INTERVAL_SECONDS}s
+  Max Emails per Run: {cls.MAX_EMAILS_PER_RUN}
   Start Date: {cls.START_DATE}
   Log Level: {cls.LOG_LEVEL}
   Transcription Marker: {cls.TRANSCRIPTION_MARKER}
