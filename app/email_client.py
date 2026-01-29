@@ -62,17 +62,38 @@ class EmailClient:
             self.logger.error(f"Authentication error: {e}")
             return False
 
-    def get_or_create_processing_folder(self):
-        """Get or create the processing folder for safe message handling"""
-        folder_name = Config.PROCESSING_FOLDER
+    def get_or_create_parent_folder(self):
+        """Get or create the parent transcription folder"""
+        folder_name = Config.TRANSCRIPTION_FOLDER
         try:
             # Try to get existing folder at top level
             for folder in self.mailbox.get_folders():
                 if folder.name == folder_name:
-                    self.logger.debug(f"Found existing processing folder: {folder_name}")
+                    self.logger.debug(f"Found existing parent folder: {folder_name}")
                     return folder
             # Create at top level if not exists
             new_folder = self.mailbox.create_child_folder(folder_name)
+            self.logger.info(f"Created parent folder: {folder_name}")
+            return new_folder
+        except Exception as e:
+            self.logger.error(f"Error with parent folder: {e}")
+            return None
+
+    def get_or_create_processing_folder(self):
+        """Get or create the processing folder for safe message handling"""
+        parent = self.get_or_create_parent_folder()
+        if not parent:
+            return None
+
+        folder_name = Config.PROCESSING_FOLDER
+        try:
+            # Try to get existing folder within parent
+            for folder in parent.get_folders():
+                if folder.name == folder_name:
+                    self.logger.debug(f"Found existing processing folder: {folder_name}")
+                    return folder
+            # Create as child of parent if not exists
+            new_folder = parent.create_child_folder(folder_name)
             self.logger.info(f"Created processing folder: {folder_name}")
             return new_folder
         except Exception as e:
@@ -89,6 +110,42 @@ class EmailClient:
                 return True
             except Exception as e:
                 self.logger.error(f"Error moving message to processing folder: {e}")
+                return False
+        return False
+
+    def get_or_create_done_folder(self):
+        """Get or create the done folder for processed messages"""
+        parent = self.get_or_create_parent_folder()
+        if not parent:
+            return None
+
+        folder_name = Config.DONE_FOLDER
+        try:
+            # Try to get existing folder within parent
+            for folder in parent.get_folders():
+                if folder.name == folder_name:
+                    self.logger.debug(f"Found existing done folder: {folder_name}")
+                    return folder
+            # Create as child of parent if not exists
+            new_folder = parent.create_child_folder(folder_name)
+            self.logger.info(f"Created done folder: {folder_name}")
+            return new_folder
+        except Exception as e:
+            self.logger.error(f"Error with done folder: {e}")
+            return None
+
+    def move_to_done(self, message) -> bool:
+        """Move message to done folder after processing and mark as read"""
+        folder = self.get_or_create_done_folder()
+        if folder:
+            try:
+                # Mark as read before moving
+                message.mark_as_read()
+                message.move(folder)
+                self.logger.info(f"Moved message to done folder (marked as read): {message.subject}")
+                return True
+            except Exception as e:
+                self.logger.error(f"Error moving message to done folder: {e}")
                 return False
         return False
 
@@ -257,11 +314,18 @@ class EmailClient:
                         content = base64.b64decode(content)
                     wav_attachments.append((attachment.name, content))
 
-            # 3. Create new message FIRST
+            # 3. Format received date/time
+            received_dt = message.received
+            if received_dt:
+                received_str = received_dt.strftime("%d.%m.%Y um %H:%M Uhr")
+            else:
+                received_str = "Unbekannt"
+
+            # 4. Create new message FIRST
             new_msg = self.mailbox.new_message()
             new_msg.to.add(self.target_email)
             new_msg.subject = f"Transkribierte Sprachnachricht von {phone_number}"
-            new_msg.body = f"{marker}<br><br>{transcription_text}"
+            new_msg.body = f"Eingangsdatum Original: {received_str}<br><br>{marker}<br><br>{transcription_text}"
 
             # 4. Attach WAV files (save to temp file first, as O365 expects file path)
             import tempfile
@@ -304,9 +368,8 @@ class EmailClient:
                 except:
                     pass
 
-            # 7. Only delete original AFTER successful send
-            message.delete()
-            self.logger.info(f"Deleted original message: {subject}")
+            # 8. Move original to done folder AFTER successful send
+            self.move_to_done(message)
             return True
 
         except Exception as e:

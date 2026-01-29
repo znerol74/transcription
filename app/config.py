@@ -23,7 +23,9 @@ class Config:
     CHECK_INTERVAL_SECONDS: int = int(os.getenv("CHECK_INTERVAL_SECONDS", "120"))
     MAX_EMAILS_PER_RUN: int = int(os.getenv("MAX_EMAILS_PER_RUN", "25"))
     VOICEMAIL_SENDER: str = os.getenv("VOICEMAIL_SENDER", "unityconnection@hosted-comm-service.a1.net")
-    PROCESSING_FOLDER: str = os.getenv("PROCESSING_FOLDER", "Voicemail-Processing")
+    TRANSCRIPTION_FOLDER: str = os.getenv("TRANSCRIPTION_FOLDER", "Transkription")
+    PROCESSING_FOLDER: str = os.getenv("PROCESSING_FOLDER", "In Bearbeitung")
+    DONE_FOLDER: str = os.getenv("DONE_FOLDER", "Bereits transkripiert")
     START_DATE: str = os.getenv("START_DATE", "2024-01-01T00:00:00Z")
 
     # Whisper Model Configuration
@@ -84,7 +86,9 @@ class Config:
 Configuration:
   Target Email: {cls.TARGET_EMAIL}
   Voicemail Sender: {cls.VOICEMAIL_SENDER}
-  Processing Folder: {cls.PROCESSING_FOLDER}
+  Transcription Folder: {cls.TRANSCRIPTION_FOLDER}
+  Processing Folder: {cls.TRANSCRIPTION_FOLDER}/{cls.PROCESSING_FOLDER}
+  Done Folder: {cls.TRANSCRIPTION_FOLDER}/{cls.DONE_FOLDER}
   Whisper Model: {cls.WHISPER_MODEL}
   Check Interval: {cls.CHECK_INTERVAL_SECONDS}s
   Max Emails per Run: {cls.MAX_EMAILS_PER_RUN}
