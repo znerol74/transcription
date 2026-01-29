@@ -149,9 +149,39 @@ class EmailClient:
                 return False
         return False
 
+    def _fetch_wav_messages(self) -> List:
+        """Internal method to fetch WAV messages from mailbox"""
+        query = f"from/emailAddress/address eq '{Config.VOICEMAIL_SENDER}'"
+        self.logger.info(f"Query: {query}")
+
+        messages = self.mailbox.get_messages(
+            query=query,
+            limit=Config.MAX_EMAILS_PER_RUN
+        )
+
+        messages_list = list(messages)
+        self.logger.info(f"Total messages fetched: {len(messages_list)}")
+
+        wav_messages = []
+        for msg in messages_list:
+            self.logger.info(f"Checking message: {msg.subject}, isRead: {msg.is_read}")
+
+            if not msg.has_attachments:
+                continue
+
+            msg.attachments.download_attachments()
+
+            for attachment in msg.attachments:
+                if attachment.name.lower().endswith('.wav'):
+                    wav_messages.append(msg)
+                    break
+
+        self.logger.info(f"Found {len(wav_messages)} messages with WAV attachments")
+        return wav_messages
+
     def get_messages_with_wav(self, since_date: str = None) -> List:
         """
-        Get messages with WAV attachments
+        Get messages with WAV attachments. Re-authenticates on token expiry.
 
         Args:
             since_date: ISO format date string (optional, not used - kept for compatibility)
@@ -165,49 +195,28 @@ class EmailClient:
 
         self.logger.info("Fetching recent messages with attachments")
 
-        try:
-            # Fetch unread messages from voicemail system only
-            # Note: We can't use $orderby with complex $filter (causes "restriction too complex" error)
-            # So we filter by sender and skip ordering - messages come in default order
-            query = f"isRead eq false and from/emailAddress/address eq '{Config.VOICEMAIL_SENDER}'"
-            self.logger.info(f"Query: {query}")
-            messages = self.mailbox.get_messages(
-                query=query,
-                limit=Config.MAX_EMAILS_PER_RUN
-                )
+        for attempt in range(2):
+            try:
+                return self._fetch_wav_messages()
 
-            # Filter for messages with attachments and WAV files
-            messages_list = list(messages)
-            self.logger.info(f"Total messages fetched: {len(messages_list)}")
+            except IndexError:
+                # IndexError during token refresh = token expired
+                if attempt == 0:
+                    self.logger.warning("Token expired, re-authenticating...")
+                    if not self.authenticate():
+                        self.logger.error("Re-authentication failed")
+                        return []
+                    self.logger.info("Re-authentication successful, retrying...")
+                else:
+                    self.logger.error("Retry after re-auth failed")
+                    return []
 
-            wav_messages = []
+            except Exception as e:
+                import traceback
+                self.logger.error(f"Error fetching messages: {e}\n{traceback.format_exc()}")
+                return []
 
-            for msg in messages_list:
-                self.logger.info(f"Checking message: {msg.subject}, isRead: {msg.is_read}")
-
-                # Skip messages without attachments
-                if not msg.has_attachments:
-                    continue
-
-                # Download attachments to check them (like the test script does)
-                msg.attachments.download_attachments()
-
-                for attachment in msg.attachments:
-                    if attachment.name.lower().endswith('.wav'):
-                        wav_messages.append(msg)
-                        break
-
-            self.logger.info(f"Found {len(wav_messages)} messages with WAV attachments")
-            return wav_messages
-
-        except IndexError as e:
-            import traceback
-            self.logger.error(f"IndexError fetching messages (O365 library bug): {e}\n{traceback.format_exc()}")
-            return []
-        except Exception as e:
-            import traceback
-            self.logger.error(f"Error fetching messages: {e}\n{traceback.format_exc()}")
-            return []
+        return []
 
     def _has_wav_attachment(self, message) -> bool:
         """
