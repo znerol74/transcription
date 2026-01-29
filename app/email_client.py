@@ -62,6 +62,36 @@ class EmailClient:
             self.logger.error(f"Authentication error: {e}")
             return False
 
+    def get_or_create_processing_folder(self):
+        """Get or create the processing folder for safe message handling"""
+        folder_name = Config.PROCESSING_FOLDER
+        try:
+            # Try to get existing folder at top level
+            for folder in self.mailbox.get_folders():
+                if folder.name == folder_name:
+                    self.logger.debug(f"Found existing processing folder: {folder_name}")
+                    return folder
+            # Create at top level if not exists
+            new_folder = self.mailbox.create_child_folder(folder_name)
+            self.logger.info(f"Created processing folder: {folder_name}")
+            return new_folder
+        except Exception as e:
+            self.logger.error(f"Error with processing folder: {e}")
+            return None
+
+    def move_to_processing(self, message) -> bool:
+        """Move message to processing folder before processing"""
+        folder = self.get_or_create_processing_folder()
+        if folder:
+            try:
+                message.move(folder)
+                self.logger.info(f"Moved message to processing folder: {message.subject}")
+                return True
+            except Exception as e:
+                self.logger.error(f"Error moving message to processing folder: {e}")
+                return False
+        return False
+
     def get_messages_with_wav(self, since_date: str = None) -> List:
         """
         Get messages with WAV attachments
@@ -113,8 +143,13 @@ class EmailClient:
             self.logger.info(f"Found {len(wav_messages)} messages with WAV attachments")
             return wav_messages
 
+        except IndexError as e:
+            import traceback
+            self.logger.error(f"IndexError fetching messages (O365 library bug): {e}\n{traceback.format_exc()}")
+            return []
         except Exception as e:
-            self.logger.error(f"Error fetching messages: {e}")
+            import traceback
+            self.logger.error(f"Error fetching messages: {e}\n{traceback.format_exc()}")
             return []
 
     def _has_wav_attachment(self, message) -> bool:
@@ -298,6 +333,11 @@ class EmailClient:
                 message.received
             )
             self.logger.info(f"Processing message: {summary}")
+
+            # Move to processing folder first (prevents re-processing and data loss)
+            if not self.move_to_processing(message):
+                self.logger.error("Failed to move message to processing folder, skipping")
+                return False
 
             # Check if already transcribed
             if self.has_transcription(message, marker):
