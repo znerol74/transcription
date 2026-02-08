@@ -151,8 +151,8 @@ class EmailClient:
 
     def _fetch_wav_messages(self) -> List:
         """Internal method to fetch WAV messages from mailbox"""
-        # Only filter by sender - no isRead filter needed since we query Inbox only
-        query = f"from/emailAddress/address eq '{Config.VOICEMAIL_SENDER}'"
+        # Filter by unread + sender — if someone reads the email manually, skip it
+        query = f"isRead eq false and from/emailAddress/address eq '{Config.VOICEMAIL_SENDER}'"
         self.logger.info(f"Query (Inbox only): {query}")
 
         # Fetch only from Inbox folder (not from other folders like "Bereits transkripiert")
