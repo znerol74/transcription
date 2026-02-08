@@ -442,12 +442,12 @@ class EmailClient:
                     transcriptions.append(text)
 
             if not transcriptions:
-                if had_errors and not had_silence:
-                    self.logger.error("All transcriptions failed (errors)")
-                    return False
-                # No speech detected - use placeholder text
-                combined_text = "[Keine Sprache erkannt / Leere Sprachnachricht]"
-                self.logger.info("No speech detected, using placeholder")
+                if had_errors:
+                    combined_text = "[Transkription fehlgeschlagen]"
+                    self.logger.warning("Transcription failed, using error placeholder")
+                else:
+                    combined_text = "[Keine Sprache erkannt / Leere Sprachnachricht]"
+                    self.logger.info("No speech detected, using placeholder")
             else:
                 # Combine transcriptions
                 combined_text = "\n\n".join(transcriptions)
