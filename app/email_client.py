@@ -428,17 +428,29 @@ class EmailClient:
 
             # Transcribe all WAV files
             transcriptions = []
+            had_errors = False
+            had_silence = False
             for filename, wav_data in wav_files:
                 text = transcription_service.transcribe_wav(wav_data, filename)
-                if text:
+                if text is None:
+                    self.logger.warning(f"Transcription error for {filename}")
+                    had_errors = True
+                elif text == "":
+                    self.logger.info(f"No speech detected in {filename}")
+                    had_silence = True
+                else:
                     transcriptions.append(text)
 
             if not transcriptions:
-                self.logger.error("All transcriptions failed")
-                return False
-
-            # Combine transcriptions
-            combined_text = "\n\n".join(transcriptions)
+                if had_errors and not had_silence:
+                    self.logger.error("All transcriptions failed (errors)")
+                    return False
+                # No speech detected - use placeholder text
+                combined_text = "[Keine Sprache erkannt / Leere Sprachnachricht]"
+                self.logger.info("No speech detected, using placeholder")
+            else:
+                # Combine transcriptions
+                combined_text = "\n\n".join(transcriptions)
 
             # Append to email
             success = self.append_transcription(message, combined_text, marker)
